@@ -51,21 +51,20 @@ fun hide() {
 }
 
 fun saveImage(inputImageFile: String, outputImageFile: String) {
-    val imageFile = File(inputImageFile)
-    val image: BufferedImage = ImageIO.read(imageFile)
+    val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
-    for (x in 0 until image.width) {
-        for (y in 0 until image.height) {
-            val color = image.getRGB(x, y)
-            val red = color and 0x00ff0000 shr 16
-            val green = color and 0x0000ff00 shr 8
-            val blue = color and 0x000000ff
+    image.apply {
+        (0 until width).forEach { x ->
+            (0 until height).forEach { y ->
+                val color = getRGB(x, y)
+                val red = color and 0x00ff0000 shr 16
+                val green = color and 0x0000ff00 shr 8
+                val blue = color and 0x000000ff
 
-            val newColor = (red or 1 shl 16) or (green or 1 shl 8) or (blue or 1)
-            image.setRGB(x, y, newColor)
+                ((red or 1 shl 16) or (green or 1 shl 8) or (blue or 1)).apply { setRGB(x, y, this) }
+            }
         }
     }
 
     ImageIO.write(image, "png", File(outputImageFile))
 }
-
