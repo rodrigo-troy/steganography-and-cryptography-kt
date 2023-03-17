@@ -1,5 +1,9 @@
 package cryptography
 
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
+
 fun main() {
     while (true) {
         println("Task (hide, show, exit):")
@@ -27,6 +31,41 @@ fun show() {
 }
 
 fun hide() {
-    println("Hiding message in image.")
+    println("Input image file:")
+    val inputImageFile = readln()
+
+    println("Output image file:")
+    val outputImageFile = readln()
+
+    //check if input file exists
+    if (!File(inputImageFile).exists()) {
+        println("Can't read input file!")
+        return
+    }
+
+    saveImage(inputImageFile, outputImageFile)
+
+    println("Input Image: $inputImageFile")
+    println("Output Image: $outputImageFile")
+    println("Image $outputImageFile is saved.")
+}
+
+fun saveImage(inputImageFile: String, outputImageFile: String) {
+    val imageFile = File(inputImageFile)
+    val image: BufferedImage = ImageIO.read(imageFile)
+
+    for (x in 0 until image.width) {
+        for (y in 0 until image.height) {
+            val color = image.getRGB(x, y)
+            val red = color and 0x00ff0000 shr 16
+            val green = color and 0x0000ff00 shr 8
+            val blue = color and 0x000000ff
+
+            val newColor = (red or 1 shl 16) or (green or 1 shl 8) or (blue or 1)
+            image.setRGB(x, y, newColor)
+        }
+    }
+
+    ImageIO.write(image, "png", File(outputImageFile))
 }
 
