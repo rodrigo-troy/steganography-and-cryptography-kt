@@ -1,5 +1,6 @@
 package cryptography
 
+import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -75,49 +76,34 @@ fun isImageBigEnough(inputImageFile: String, message: String): Boolean {
 
     val totalPixels = image.width * image.height
     val totalMessageBits = messageBytes.size * 8
-
-    //release the image
     image.flush()
 
     return totalPixels >= totalMessageBits
 }
 
-
 fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, message: String) {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
-    val messageBytes = message.encodeToByteArray().toMutableList()
 
-    messageBytes.addAll(listOf(0.toByte(), 0.toByte(), 3.toByte()))
+    val userMessage = (message.map { it.code } + listOf(0, 0, 3)).joinToString("") {
+        it.toString(2).padStart(8, '0')
+    }
 
-    var messageIndex = 0
-    var bitIndex = 0
+    var index = 0
 
-    image.apply {
-        loop@ for (y in 0 until height) {
-            for (x in 0 until width) {
-                val color = getRGB(x, y)
-                val red = color and 0x00ff0000 shr 16
-                val green = color and 0x0000ff00 shr 8
-                val blue = color and 0x000000ff
-
-                val messageBit = (messageBytes[messageIndex].toInt() shr bitIndex) and 1
-                val newBlue = blue and 0b11111110 or messageBit
-
-                val newColor = (red shl 16) or (green shl 8) or newBlue
-                setRGB(x, y, newColor)
-
-                if (messageIndex < messageBytes.size - 1) {
-                    bitIndex++
-                    if (bitIndex == 8) {
-                        bitIndex = 0
-                        messageIndex++
-                    }
-                } else {
-                    break@loop
-                }
+    outerLoop@ for (y in 0 until image.height) {
+        for (x in 0 until image.width) {
+            if (index == userMessage.length) {
+                ImageIO.write(image, "png", File(outputImageFile))
+                return
             }
+
+            val bit = userMessage[index++].digitToInt()
+            val originalColor = Color(image.getRGB(x, y))
+            val newColor = Color(originalColor.red, originalColor.green, originalColor.blue.and(254).or(bit))
+            image.setRGB(x, y, newColor.rgb)
         }
     }
+
     ImageIO.write(image, "png", File(outputImageFile))
 }
 
@@ -125,8 +111,6 @@ fun readMessageFromImage(inputImageFile: String): String {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
     val messageBytes = mutableListOf<Byte>()
-
-    var messageIndex = 0
     var bitIndex = 0
     var currentByte = 0
 
@@ -137,7 +121,7 @@ fun readMessageFromImage(inputImageFile: String): String {
                 val blue = color and 0x000000ff
 
                 val messageBit = blue and 1
-                currentByte = currentByte or (messageBit shl bitIndex)
+                currentByte = currentByte or (messageBit shl (7 - bitIndex))
 
                 bitIndex++
                 if (bitIndex == 8) {
@@ -158,11 +142,9 @@ fun readMessageFromImage(inputImageFile: String): String {
         }
     }
 
-    // Remove the last 3 bytes (0, 0, 3) from the messageBytes list
     messageBytes.removeAt(messageBytes.size - 1)
     messageBytes.removeAt(messageBytes.size - 1)
     messageBytes.removeAt(messageBytes.size - 1)
 
-    // Convert the messageBytes list to a String using UTF-8 charset
     return messageBytes.toByteArray().toString(Charsets.UTF_8)
 }
