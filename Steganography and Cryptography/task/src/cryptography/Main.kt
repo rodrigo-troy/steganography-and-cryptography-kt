@@ -35,7 +35,10 @@ fun show() {
         return
     }
 
-    val message = readMessageFromImage(inputImageFile)
+    println("Password:")
+    val password = readln()
+
+    val message = readMessageFromImage(inputImageFile, password)
     println("Message: $message")
 }
 
@@ -49,6 +52,9 @@ fun hide() {
     println("Message to hide:")
     val message = readln()
 
+    println("Password:")
+    val password = readln()
+
     if (!File(inputImageFile).exists()) {
         println("Can't read input file!")
         return
@@ -59,7 +65,7 @@ fun hide() {
         return
     }
 
-    saveImageWithMessage(inputImageFile, outputImageFile, message)
+    saveImageWithMessage(inputImageFile, outputImageFile, message, password)
 
     println("Input Image: $inputImageFile")
     println("Output Image: $outputImageFile")
@@ -78,7 +84,7 @@ fun isImageBigEnough(inputImageFile: String, message: String): Boolean {
     return totalPixels >= totalMessageBits
 }
 
-fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, message: String) {
+fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, message: String, password: String) {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
     val binaryMessage: String = message.encodeToByteArray().toMutableList()
@@ -103,7 +109,7 @@ fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, messag
     ImageIO.write(image, "png", File(outputImageFile))
 }
 
-fun readMessageFromImage(inputImageFile: String): String {
+fun readMessageFromImage(inputImageFile: String, password: String): String {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
     val messageBytes = mutableListOf<Byte>()
