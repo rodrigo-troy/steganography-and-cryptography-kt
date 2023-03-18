@@ -88,7 +88,7 @@ fun isImageBigEnough(inputImageFile: String, message: String): Boolean {
 fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, message: String, password: String) {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
-    val bits = xorBits(getBits(message), password) + getBits("\u0000\u0000\u0003")
+    val bits = xorBits(getFixedBits(message), password) + getFixedBits("\u0000\u0000\u0003")
 
     var index = 0
     start@ for (y in 0 until image.height) {
@@ -103,16 +103,17 @@ fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, messag
     ImageIO.write(image, "png", File(outputImageFile))
 }
 
-private fun getBits(message: String) = message.map { it.code }.map {
-    it.toString(2).padStart(8, '0').map { char -> char.digitToInt().toByte() }
-}.flatten()
+private fun getFixedBits(message: String): List<Byte> {
+    return message.map { it.code }.map { it.toString(2).padStart(8, '0').map { char -> char.digitToInt().toByte() } }
+        .flatten()
+}
 
 
 fun readMessageFromImage(inputImageFile: String, password: String): String {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
     val message = mutableListOf<Byte>()
-    val end = getBits("\u0000\u0000\u0003")
+    val end = getFixedBits("\u0000\u0000\u0003")
 
     for (y in 0 until image.height) {
         for (x in 0 until image.width) {
@@ -132,6 +133,6 @@ fun readMessageFromImage(inputImageFile: String, password: String): String {
 
 //refactor the xorBits function to use the xor function
 fun xorBits(bits: List<Byte>, password: String): List<Byte> {
-    val passwordBits = getBits(password)
+    val passwordBits = getFixedBits(password)
     return bits.mapIndexed { index, byte -> byte xor passwordBits[index % passwordBits.size] }
 }
