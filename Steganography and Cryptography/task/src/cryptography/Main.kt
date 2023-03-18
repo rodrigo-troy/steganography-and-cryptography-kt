@@ -4,6 +4,7 @@ import java.awt.Color
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.experimental.xor
 
 fun main() {
     while (true) {
@@ -87,66 +88,50 @@ fun isImageBigEnough(inputImageFile: String, message: String): Boolean {
 fun saveImageWithMessage(inputImageFile: String, outputImageFile: String, message: String, password: String) {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
-    val binaryMessage: String = message.encodeToByteArray().toMutableList()
-        .apply { addAll(listOf(0.toByte(), 0.toByte(), 3.toByte())) }
-        .joinToString("") { it.toString(2).padStart(8, '0') }
+    val bits = xorBits(getBits(message), password) + getBits("\u0000\u0000\u0003")
 
     var index = 0
-    (0 until image.height).forEach { y ->
-        (0 until image.width).forEach { x ->
-            if (index == binaryMessage.length) {
-                ImageIO.write(image, "png", File(outputImageFile))
-                return
-            }
-
-            val bit = binaryMessage[index++].digitToInt()
-            val originalColor = Color(image.getRGB(x, y))
-            val newColor = Color(originalColor.red, originalColor.green, originalColor.blue.and(254).or(bit))
-            image.setRGB(x, y, newColor.rgb)
+    start@ for (y in 0 until image.height) {
+        for (x in 0 until image.width) {
+            if (index == bits.size) break@start
+            val bit = bits[index++].toInt()
+            val color = Color(image.getRGB(x, y)).let { Color(it.red, it.green, it.blue.and(254).or(bit)) }
+            image.setRGB(x, y, color.rgb)
         }
     }
 
     ImageIO.write(image, "png", File(outputImageFile))
 }
 
+private fun getBits(message: String) = message.map { it.code }.map {
+    it.toString(2).padStart(8, '0').map { char -> char.digitToInt().toByte() }
+}.flatten()
+
+
 fun readMessageFromImage(inputImageFile: String, password: String): String {
     val image: BufferedImage = ImageIO.read(File(inputImageFile))
 
-    val messageBytes = mutableListOf<Byte>()
-    var bitIndex = 0
-    var currentByte = 0
+    val message = mutableListOf<Byte>()
+    val end = getBits("\u0000\u0000\u0003")
 
-    image.apply {
-        loop@ for (y in 0 until height) {
-            for (x in 0 until width) {
-                val color = getRGB(x, y)
-                val blue = color and 0x000000ff
-
-                val messageBit = blue and 1
-                currentByte = currentByte or (messageBit shl (7 - bitIndex))
-
-                bitIndex++
-                if (bitIndex == 8) {
-                    messageBytes.add(currentByte.toByte())
-
-                    if (messageBytes.size >= 3 &&
-                        messageBytes[messageBytes.size - 3] == 0.toByte() &&
-                        messageBytes[messageBytes.size - 2] == 0.toByte() &&
-                        messageBytes[messageBytes.size - 1] == 3.toByte()
-                    ) {
-                        break@loop
-                    }
-
-                    bitIndex = 0
-                    currentByte = 0
-                }
+    for (y in 0 until image.height) {
+        for (x in 0 until image.width) {
+            message.add((Color(image.getRGB(x, y)).blue % 2).toByte())
+            if (message.size >= end.size && message.size % 8 == 0 && message.takeLast(end.size) == end) {
+                val joinToString =
+                    xorBits(message, password).joinToString("").chunked(8).map { it.toInt(2).toChar() }.joinToString("")
+                return "Message:\n$joinToString"
             }
         }
     }
 
-    messageBytes.removeAt(messageBytes.size - 1)
-    messageBytes.removeAt(messageBytes.size - 1)
-    messageBytes.removeAt(messageBytes.size - 1)
+    return "Message:\n${
+        xorBits(message, password).joinToString("").chunked(8).map { it.toInt(2).toChar() }.joinToString("")
+    }"
+}
 
-    return messageBytes.toByteArray().toString(Charsets.UTF_8)
+//refactor the xorBits function to use the xor function
+fun xorBits(bits: List<Byte>, password: String): List<Byte> {
+    val passwordBits = getBits(password)
+    return bits.mapIndexed { index, byte -> byte xor passwordBits[index % passwordBits.size] }
 }
